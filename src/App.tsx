@@ -118,9 +118,22 @@ function App() {
     setCurrentView('lessons');
   }
 
-  function handleSelectLesson(lesson: Lesson) {
+  async function handleSelectLesson(lesson: Lesson) {
     setSelectedLesson(lesson);
     setCurrentView('lesson');
+
+    if (!userProgress.has(lesson.id)) {
+      await supabase
+        .from('user_progress')
+        .upsert({
+          user_id: userId,
+          lesson_id: lesson.id,
+          completed: false
+        }, {
+          onConflict: 'user_id,lesson_id'
+        });
+      await loadUserProgress();
+    }
   }
 
   function handleBackToModules() {
@@ -274,6 +287,7 @@ function App() {
             module={selectedModule}
             lessons={lessons}
             completedLessonIds={completedLessonIds}
+            userProgress={userProgress}
             onBack={handleBackToModules}
             onSelectLesson={handleSelectLesson}
           />

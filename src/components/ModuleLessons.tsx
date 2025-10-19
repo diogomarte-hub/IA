@@ -1,10 +1,11 @@
-import { ArrowLeft, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
-import { Module, Lesson } from '../lib/supabase';
+import { ArrowLeft, CheckCircle2, Circle, PlayCircle, Clock } from 'lucide-react';
+import { Module, Lesson, UserProgress } from '../lib/supabase';
 
 interface ModuleLessonsProps {
   module: Module;
   lessons: Lesson[];
   completedLessonIds: Set<string>;
+  userProgress: Map<string, UserProgress>;
   onBack: () => void;
   onSelectLesson: (lesson: Lesson) => void;
 }
@@ -13,6 +14,7 @@ export function ModuleLessons({
   module,
   lessons,
   completedLessonIds,
+  userProgress,
   onBack,
   onSelectLesson
 }: ModuleLessonsProps) {
@@ -44,7 +46,9 @@ export function ModuleLessons({
 
           <div className="space-y-3">
             {lessons.map((lesson, index) => {
-              const isCompleted = completedLessonIds.has(lesson.id);
+              const progress = userProgress.get(lesson.id);
+              const isCompleted = progress?.completed || false;
+              const isInProgress = progress && !progress.completed;
 
               return (
                 <button
@@ -66,6 +70,11 @@ export function ModuleLessons({
                           <>
                             <CheckCircle2 size={16} className="text-emerald-500" />
                             <span className="text-sm text-emerald-600">Completa</span>
+                          </>
+                        ) : isInProgress ? (
+                          <>
+                            <Clock size={16} className="text-blue-500" />
+                            <span className="text-sm text-blue-600">Em progresso</span>
                           </>
                         ) : (
                           <>
