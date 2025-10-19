@@ -12,6 +12,7 @@ type View = 'modules' | 'lessons' | 'lesson';
 function App() {
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [userProgress, setUserProgress] = useState<Map<string, UserProgress>>(new Map());
   const [currentView, setCurrentView] = useState<View>('modules');
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
@@ -22,6 +23,7 @@ function App() {
 
   useEffect(() => {
     loadModules();
+    loadAllLessons();
     checkUser();
   }, []);
 
@@ -69,6 +71,17 @@ function App() {
 
     if (data) {
       setModules(data);
+    }
+  }
+
+  async function loadAllLessons() {
+    const { data } = await supabase
+      .from('lessons')
+      .select('*')
+      .order('order_index');
+
+    if (data) {
+      setAllLessons(data);
     }
   }
 
@@ -149,7 +162,7 @@ function App() {
     return moduleLessons.filter(l => userProgress.has(l.id) && userProgress.get(l.id)?.completed).length;
   }
 
-  const totalLessons = lessons.length;
+  const totalLessons = allLessons.length;
   const completedLessons = Array.from(userProgress.values()).filter(p => p.completed).length;
   const overallProgress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
 
