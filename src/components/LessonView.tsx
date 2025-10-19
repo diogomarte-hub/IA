@@ -104,6 +104,7 @@ export function LessonView({ lesson, onBack, onComplete, isCompleted }: LessonVi
                   key={quiz.id}
                   quiz={quiz}
                   questionNumber={index + 1}
+                  totalQuestions={quizzes.length}
                   onAnswered={onComplete}
                 />
               ))}

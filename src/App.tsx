@@ -44,11 +44,10 @@ function App() {
       setUserId(tempId);
     }
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setUser(session.user);
         setUserId(session.user.id);
-        loadUserProgress();
       } else {
         setUser(null);
         const tempId = localStorage.getItem('tempUserId') || crypto.randomUUID();

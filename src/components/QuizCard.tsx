@@ -5,12 +5,14 @@ import { Quiz } from '../lib/supabase';
 interface QuizCardProps {
   quiz: Quiz;
   questionNumber: number;
+  totalQuestions: number;
   onAnswered: () => void;
 }
 
-export function QuizCard({ quiz, questionNumber, onAnswered }: QuizCardProps) {
+export function QuizCard({ quiz, questionNumber, totalQuestions, onAnswered }: QuizCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [answered, setAnswered] = useState(false);
 
   function handleSelectAnswer(index: number) {
     if (showResult) return;
@@ -20,6 +22,14 @@ export function QuizCard({ quiz, questionNumber, onAnswered }: QuizCardProps) {
   function handleSubmit() {
     if (selectedAnswer === null) return;
     setShowResult(true);
+    if (!answered) {
+      setAnswered(true);
+      if (questionNumber === totalQuestions) {
+        setTimeout(() => {
+          onAnswered();
+        }, 1000);
+      }
+    }
   }
 
   const isCorrect = selectedAnswer === quiz.correct_answer;
