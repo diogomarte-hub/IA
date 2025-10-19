@@ -166,11 +166,11 @@ function App() {
   }
 
   function getLessonCountForModule(moduleId: string): number {
-    return lessons.filter(l => l.module_id === moduleId).length;
+    return allLessons.filter(l => l.module_id === moduleId).length;
   }
 
   function getCompletedCountForModule(moduleId: string): number {
-    const moduleLessons = lessons.filter(l => l.module_id === moduleId);
+    const moduleLessons = allLessons.filter(l => l.module_id === moduleId);
     return moduleLessons.filter(l => userProgress.has(l.id) && userProgress.get(l.id)?.completed).length;
   }
 
