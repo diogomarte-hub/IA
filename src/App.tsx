@@ -33,12 +33,6 @@ function App() {
     }
   }, [userId]);
 
-  useEffect(() => {
-    if (userId) {
-      loadUserProgress();
-    }
-  }, [userId]);
-
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
