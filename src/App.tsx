@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { GraduationCap, TrendingUp, Award } from 'lucide-react';
+import { GraduationCap, TrendingUp, Award, LogIn, LogOut } from 'lucide-react';
 import { supabase, Module, Lesson, UserProgress } from './lib/supabase';
 import { ModuleCard } from './components/ModuleCard';
 import { ModuleLessons } from './components/ModuleLessons';
 import { LessonView } from './components/LessonView';
+import { AuthModal } from './components/AuthModal';
+import type { User } from '@supabase/supabase-js';
 
 type View = 'modules' | 'lessons' | 'lesson';
 
@@ -14,19 +16,50 @@ function App() {
   const [currentView, setCurrentView] = useState<View>('modules');
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
-  const [userId] = useState(() => {
-    let id = localStorage.getItem('userId');
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem('userId', id);
-    }
-    return id;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     loadModules();
-    loadUserProgress();
+    checkUser();
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadUserProgress();
+    }
+  }, [userId]);
+
+  async function checkUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setUser(session.user);
+      setUserId(session.user.id);
+    } else {
+      const tempId = localStorage.getItem('tempUserId') || crypto.randomUUID();
+      localStorage.setItem('tempUserId', tempId);
+      setUserId(tempId);
+    }
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setUserId(session.user.id);
+        loadUserProgress();
+      } else {
+        setUser(null);
+        const tempId = localStorage.getItem('tempUserId') || crypto.randomUUID();
+        localStorage.setItem('tempUserId', tempId);
+        setUserId(tempId);
+      }
+    });
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUserProgress(new Map());
+  }
 
   async function loadModules() {
     const { data } = await supabase
@@ -146,7 +179,26 @@ function App() {
             </div>
 
             {currentView === 'modules' && (
-              <div className="hidden sm:flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                {user ? (
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors border border-purple-500/20"
+                  >
+                    <LogOut size={18} />
+                    <span className="hidden sm:inline">Sair</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg transition-all shadow-lg shadow-purple-500/30"
+                  >
+                    <LogIn size={18} />
+                    <span className="hidden sm:inline">Entrar / Criar Conta</span>
+                    <span className="sm:hidden">Entrar</span>
+                  </button>
+                )}
+                <div className="hidden md:flex items-center gap-6">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={20} className="text-purple-400" />
                   <div className="text-right">
@@ -166,6 +218,7 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
             )}
           </div>
         </div>
@@ -235,6 +288,14 @@ function App() {
           </div>
         </div>
       </footer>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          loadUserProgress();
+        }}
+      />
     </div>
   );
 }
