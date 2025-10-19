@@ -1,0 +1,242 @@
+import { useState, useEffect } from 'react';
+import { GraduationCap, TrendingUp, Award } from 'lucide-react';
+import { supabase, Module, Lesson, UserProgress } from './lib/supabase';
+import { ModuleCard } from './components/ModuleCard';
+import { ModuleLessons } from './components/ModuleLessons';
+import { LessonView } from './components/LessonView';
+
+type View = 'modules' | 'lessons' | 'lesson';
+
+function App() {
+  const [modules, setModules] = useState<Module[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [userProgress, setUserProgress] = useState<Map<string, UserProgress>>(new Map());
+  const [currentView, setCurrentView] = useState<View>('modules');
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [userId] = useState(() => {
+    let id = localStorage.getItem('userId');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('userId', id);
+    }
+    return id;
+  });
+
+  useEffect(() => {
+    loadModules();
+    loadUserProgress();
+  }, []);
+
+  async function loadModules() {
+    const { data } = await supabase
+      .from('modules')
+      .select('*')
+      .order('order_index');
+
+    if (data) {
+      setModules(data);
+    }
+  }
+
+  async function loadUserProgress() {
+    const { data } = await supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (data) {
+      const progressMap = new Map<string, UserProgress>();
+      data.forEach(progress => {
+        progressMap.set(progress.lesson_id, progress);
+      });
+      setUserProgress(progressMap);
+    }
+  }
+
+  async function loadLessonsForModule(moduleId: string) {
+    const { data } = await supabase
+      .from('lessons')
+      .select('*')
+      .eq('module_id', moduleId)
+      .order('order_index');
+
+    if (data) {
+      setLessons(data);
+    }
+  }
+
+  function handleSelectModule(module: Module) {
+    setSelectedModule(module);
+    loadLessonsForModule(module.id);
+    setCurrentView('lessons');
+  }
+
+  function handleSelectLesson(lesson: Lesson) {
+    setSelectedLesson(lesson);
+    setCurrentView('lesson');
+  }
+
+  function handleBackToModules() {
+    setCurrentView('modules');
+    setSelectedModule(null);
+    setLessons([]);
+  }
+
+  function handleBackToLessons() {
+    setCurrentView('lessons');
+    setSelectedLesson(null);
+  }
+
+  async function handleCompleteLesson() {
+    if (!selectedLesson) return;
+
+    const { error } = await supabase
+      .from('user_progress')
+      .upsert({
+        user_id: userId,
+        lesson_id: selectedLesson.id,
+        completed: true,
+        completed_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,lesson_id'
+      });
+
+    if (!error) {
+      await loadUserProgress();
+    }
+  }
+
+  function getLessonCountForModule(moduleId: string): number {
+    return lessons.filter(l => l.module_id === moduleId).length;
+  }
+
+  function getCompletedCountForModule(moduleId: string): number {
+    const moduleLessons = lessons.filter(l => l.module_id === moduleId);
+    return moduleLessons.filter(l => userProgress.has(l.id) && userProgress.get(l.id)?.completed).length;
+  }
+
+  const totalLessons = lessons.length;
+  const completedLessons = Array.from(userProgress.values()).filter(p => p.completed).length;
+  const overallProgress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+  const completedLessonIds = new Set(
+    Array.from(userProgress.entries())
+      .filter(([_, progress]) => progress.completed)
+      .map(([lessonId]) => lessonId)
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <header className="bg-black/50 backdrop-blur-lg border-b border-purple-500/20 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/50">
+                <GraduationCap className="text-white" size={24} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  Dominando IA
+                </h1>
+                <p className="text-sm text-purple-300">
+                  Aprenda a usar IA sem enrolação
+                </p>
+              </div>
+            </div>
+
+            {currentView === 'modules' && (
+              <div className="hidden sm:flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={20} className="text-purple-400" />
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400">Progresso Geral</p>
+                    <p className="text-sm font-semibold text-white">
+                      {Math.round(overallProgress)}%
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Award size={20} className="text-purple-400" />
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400">Aulas Completas</p>
+                    <p className="text-sm font-semibold text-white">
+                      {completedLessons} de {totalLessons}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {currentView === 'modules' && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-white mb-3">
+                Domine IA do Zero ao Avançado
+              </h2>
+              <p className="text-lg text-gray-300">
+                Curso completo e direto ao ponto. Sem filtros, sem enrolação. Aprenda a usar IA na prática.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {modules.map(module => (
+                <ModuleCard
+                  key={module.id}
+                  module={module}
+                  lessonsCount={3}
+                  completedCount={getCompletedCountForModule(module.id)}
+                  onSelect={() => handleSelectModule(module)}
+                />
+              ))}
+            </div>
+
+            {modules.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Carregando módulos...</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentView === 'lessons' && selectedModule && (
+          <ModuleLessons
+            module={selectedModule}
+            lessons={lessons}
+            completedLessonIds={completedLessonIds}
+            onBack={handleBackToModules}
+            onSelectLesson={handleSelectLesson}
+          />
+        )}
+
+        {currentView === 'lesson' && selectedLesson && (
+          <LessonView
+            lesson={selectedLesson}
+            onBack={handleBackToLessons}
+            onComplete={handleCompleteLesson}
+            isCompleted={completedLessonIds.has(selectedLesson.id)}
+          />
+        )}
+      </main>
+
+      <footer className="bg-black/50 backdrop-blur-lg border-t border-purple-500/20 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center text-gray-400">
+            <p className="mb-2">
+              Aprenda IA de verdade. Sem hype, sem enrolação.
+            </p>
+            <p className="text-sm text-gray-500">
+              O futuro pertence a quem domina IA
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
